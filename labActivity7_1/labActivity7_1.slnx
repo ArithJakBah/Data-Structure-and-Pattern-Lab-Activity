@@ -5,4 +5,5 @@
   </Configurations>
   <Project Path="PartA/PartA.vcxproj" Id="94555bfc-c393-46b8-8827-925e920f4ec7" />
   <Project Path="PartB/PartB.vcxproj" Id="77c7ebba-d3c4-4bbb-8a05-a5ddb9c32c4e" />
+  <Project Path="PartC/PartC.vcxproj" Id="8a5d7b68-3e61-41a5-9e20-59f3f8a52fa8" />
 </Solution>
