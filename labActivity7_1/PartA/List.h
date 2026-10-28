@@ -16,11 +16,11 @@ private:
 
 	Node* nodeAt(int index) const
 	{
-		if (index < 0 || index >= count)
+		if (index < 0 || index >= count) // will return NIL if index less than 0 or index more or equal to "list size"
 			return &(Node::NIL);
 
 		Node* cur;
-		if (index < count / 2)
+		if (index < count / 2)  // if index less than "total list" divide by 2 
 		{
 			cur = head;
 			for (int i = 0; i < index; ++i) cur = cur->getNext();
@@ -165,9 +165,9 @@ public:
 
 	//[] operator
 	// Bad index returns NIL's value, which is T()
-	T operator[](int index) const
+	T operator[](int index) const //index is what we put to find the value in array
 	{
-		return nodeAt(index)->getValue();
+		return nodeAt(index)->getValue();  //pinpoint eg. 2 then it will get the value eg. 10, 20, [30].
 	}
 
 	Iterator getIterator() const
