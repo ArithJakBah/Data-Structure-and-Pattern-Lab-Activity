@@ -16,5 +16,19 @@ int main()
 	std::cout << "Child 2 key: " << root[1].getKey() << std::endl;
 	std::cout << "Child 3 is NIL: " << root[2].isEmpty() << std::endl;
 
+	// Test getSize()
+	std::cout << "Total tree size: " << root.getSize() << std::endl;
+
+	// Test search()
+	NTree<int, 3>* target = root.search(4);
+	if (target != nullptr)
+	{
+		std::cout << "Found node with key: " << target->getKey() << std::endl;
+	}
+	else
+	{
+		std::cout << "Key not found!" << std::endl;
+	}
+
 	return 0;
 }
