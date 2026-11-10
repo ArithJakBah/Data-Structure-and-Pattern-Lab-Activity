@@ -1,5 +1,6 @@
 #pragma once
 #include <stdexcept>
+#include "TreeVisitor.h"
 
 using namespace std;
 
@@ -8,14 +9,14 @@ class BTree
 {
 private:
 	const T* fKey; // Node's value
+	
 	//Left and right nodes branching off
 	BTree<T>* fLeft;
 	BTree<T>* fRight;
 
 	//Default private constructor
-	BTree() : fKey // set the fKey = nullptr
+	BTree() : fKey((T*)0) // set the fKey = nullptr
 	{
-		fKey = (T*)0;
 	//make left/right initially NIL for now
 		fLeft = &NIL;
 		fRight = &NIL;
@@ -63,7 +64,7 @@ public:
 	{
 		if (isEmpty())
 			throw std::domain_error("Empty node!");
-		return *fLeft
+		return *fLeft;
 
 	}
 	BTree& right() const
@@ -118,6 +119,19 @@ public:
 		BTree<T>& Result = *fRight; //get the node at fRight
 		fRight = &NIL; //set fRight to NIL
 		return &Result;  //return the detached node
+	}
+
+	// Traversal method with the visitor
+	void traverseDepthFirst(const TreeVisitor<T>& aVisitor) const
+	{
+		if (!isEmpty())
+		{
+			aVisitor.preVisit(key());
+			left().traverseDepthFirst(aVisitor);
+			aVisitor.inVisit(key());
+			right().traverseDepthFirst(aVisitor);
+			aVisitor.postVisit(key());
+		}
 	}
 };
 
