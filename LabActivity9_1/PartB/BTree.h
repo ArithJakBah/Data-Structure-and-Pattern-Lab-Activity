@@ -45,7 +45,7 @@ public:
 
 	/*Auxiliary methods*/
 	//checks if this node is not NIL, used later in other methods
-	bool isEmpty() const
+	bool isEmpty() const 
 	{
 		return this == &NIL;
 	}
@@ -122,15 +122,20 @@ public:
 	}
 
 	// Traversal method with the visitor
+	// Each node holds a key and points to a left and right child. Empty spots point to NIL, the sentinel.
 	void traverseDepthFirst(const TreeVisitor<T>& aVisitor) const
 	{
-		if (!isEmpty())
+		if (!isEmpty())  // only do work if this is a REAL node
 		{
-			aVisitor.preVisit(key());
-			left().traverseDepthFirst(aVisitor);
-			aVisitor.inVisit(key());
-			right().traverseDepthFirst(aVisitor);
-			aVisitor.postVisit(key());
+			aVisitor.preVisit(key());				// 1. before children
+
+			left().traverseDepthFirst(aVisitor);	// 2. whole left side
+
+			aVisitor.inVisit(key());				// 3. between children
+
+			right().traverseDepthFirst(aVisitor);	// 4. whole right side
+
+			aVisitor.postVisit(key());				// 5. after children
 		}
 	}
 };
