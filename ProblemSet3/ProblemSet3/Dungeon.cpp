@@ -30,7 +30,7 @@ void Dungeon::build()
 
     // Two dead ends: one winning room and one losing room.
     Room& treasureA = g3.addChild("Treasure A");
-    treasureA.addEntity(make_unique<Item>("Treasure", "A chest full of treasure!", 0, 100));
+    treasureA.addEntity(make_unique<Item>("Treasure", "A chest full of treasure!", 0, 100, true));
 
     Room& goku = g3.addChild("Goku");
     goku.addEntity(make_unique<Monster>("Goku", "A Super Saiyan Itching for a fight.", 99999, 9999));
@@ -53,7 +53,7 @@ void Dungeon::build()
     saitama.addEntity(make_unique<Monster>("Saitama", "He wins every fight in one punch.", 99999, 9999));
 
     Room& treasureB = g4.addChild("Treasure B");
-    treasureB.addEntity(make_unique<Item>("Treasure", "A chest full of treasure!", 0, 100));
+    treasureB.addEntity(make_unique<Item>("Treasure", "A chest full of treasure!", 0, 100, true));
 }
 
 Room& Dungeon::current() const noexcept { return *fCurrent; }
