@@ -139,14 +139,27 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="AttackVisitor.h" />
+    <ClInclude Include="DisarmVisitor.h" />
+    <ClInclude Include="Dungeon.h" />
     <ClInclude Include="Entity.h" />
+    <ClInclude Include="ExitVisitor.h" />
     <ClInclude Include="Item.h" />
     <ClInclude Include="Monster.h" />
     <ClInclude Include="Player.h" />
+    <ClInclude Include="Room.h" />
+    <ClInclude Include="TakeVisitor.h" />
     <ClInclude Include="Trap.h" />
+    <ClInclude Include="Visitor.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AttackVisitor.cpp" />
+    <ClCompile Include="DisarmVisitor.cpp" />
+    <ClCompile Include="Dungeon.cpp" />
+    <ClCompile Include="ExitVisitor.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="Room.cpp" />
+    <ClCompile Include="TakeVisitor.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
