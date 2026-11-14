@@ -1,28 +1,27 @@
 #pragma once
 #include <string>
 
+class Visitor; //foward declaration
+
 class Entity
 {
-protected:
-    std::string fName;
-    int fHp, fMaxHp, fAttack, fDefence;
+private:
+	std::string fName;
+	std::string fDescription;
 
 public:
-    Entity(const std::string& aName, int aHp, int aAttack, int aDefence);
-    virtual ~Entity() = default;
+	Entity(const std::string& aName, const std::string& aDescription)
+		noexcept : fName(aName), fDescription(aDescription) {
+	}
 
-    bool isAlive() const;
-    void takeDamage(int aAmount);                 // clamp HP at 0
+	virtual ~Entity() = default;
 
-    virtual void takeTurn(Entity& aTarget) = 0;   // each subclass decides what it does
+	const std::string& name() const noexcept { return fName; }
+	const std::string& description() const noexcept { return fDescription; }
+
+	// Visitor hook. Visitable subclasses override this; the default does nothing.
+	virtual void accept(Visitor&) {}
+
+	// True once the entity is used up and should be removed from its room.
+	virtual bool isGone() const noexcept { return false; }
 };
-
-class Monster : public Entity
-{
-public:
-    virtual void takeTurn(Entity& aTarget) override;   // default behaviour: attack
-    virtual int  goldDrop() const;
-};
-
-class Goblin : public Monster { /* override takeTurn: maybe steals gold */ };
-class Orc : public Monster { /* override takeTurn: hits harder */ };
