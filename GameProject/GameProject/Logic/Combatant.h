@@ -30,5 +30,10 @@ public:
 	bool spendMana(int aCost) noexcept;               // false if not enough mana
 	void restoreMana(int aAmount) noexcept;           // clamp at maxMana()
 
+	// Shield hooks: only the Player has a shield stack, everyone else has none.
+	virtual bool addShield(int aDurability) noexcept;  // false = cannot hold (more) shield
+	virtual int  shieldLayers() const noexcept;
+	virtual int  shieldPoints() const noexcept;
+
 	virtual void takeTurn(Combatant& aTarget) = 0;    // monsters decide automatically
 };

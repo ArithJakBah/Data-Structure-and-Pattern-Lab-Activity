@@ -83,3 +83,7 @@ void Combatant::restoreMana(int aAmount) noexcept
 		fMana = maxMana();
 	}
 }
+
+bool Combatant::addShield(int /*aDurability*/) noexcept { return false; }
+int Combatant::shieldLayers() const noexcept { return 0; }
+int Combatant::shieldPoints() const noexcept { return 0; }

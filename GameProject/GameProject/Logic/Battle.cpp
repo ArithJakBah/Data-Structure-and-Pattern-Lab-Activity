@@ -1,7 +1,7 @@
 #include "Battle.h"
 
 Battle::Battle(Player* aPlayer, Monster* aMonsters[], size_t aCount)
-	: fQueue(16), fPlayer(aPlayer), fMonsterCount(0)
+	: fQueue(16), fPlayer(aPlayer), fMonsters{}, fMonsterCount(0)
 {
 	for (size_t i = 0; i < aCount && i < MAX_MONSTERS; i++)
 	{
@@ -51,7 +51,7 @@ bool Battle::playerWon() const
 	return fPlayer->isAlive() && aliveMonsterCount() == 0;
 }
 
-Combatant* Battle::step()
+Combatant* Battle::step(const PlayerAction* aAction)
 {
 	if (isOver() || fQueue.isEmpty())
 	{
@@ -66,20 +66,27 @@ Combatant* Battle::step()
 		return nullptr;
 	}
 
-	// Choose the target fresh each turn
-	Combatant* target = nullptr;
-	if (current == fPlayer)
+	if (current == fPlayer && aAction != nullptr)
 	{
-		target = firstAliveMonster();
+		performPlayerAction(*aAction);          // the player's chosen move
 	}
 	else
 	{
-		target = fPlayer;
-	}
+		// Choose the target fresh each turn
+		Combatant* target = nullptr;
+		if (current == fPlayer)
+		{
+			target = firstAliveMonster();
+		}
+		else
+		{
+			target = fPlayer;
+		}
 
-	if (target != nullptr)
-	{
-		current->takeTurn(*target);
+		if (target != nullptr)
+		{
+			current->takeTurn(*target);
+		}
 	}
 
 	// Still alive after acting? Back of the queue.
@@ -89,6 +96,45 @@ Combatant* Battle::step()
 	}
 
 	return current;
+}
+
+void Battle::performPlayerAction(const PlayerAction& aAction)
+{
+	Monster* target = aAction.target;
+	if (target == nullptr || !target->isAlive())
+	{
+		target = firstAliveMonster();
+	}
+
+	if (aAction.kind == PlayerAction::Kind::UseSkill && aAction.skill != nullptr)
+	{
+		aAction.skill->use(*fPlayer, target);   // skills that act on the caster ignore the target
+		return;
+	}
+	if (target != nullptr)
+	{
+		fPlayer->takeTurn(*target);             // basic attack
+	}
+}
+
+Combatant* Battle::peekNext()
+{
+	if (fQueue.isEmpty())
+	{
+		return nullptr;
+	}
+
+	// Take the front one and send it to the back...
+	Combatant* first = fQueue.dequeue();
+	fQueue.enqueue(first);
+
+	// ...then rotate everyone else once, so the original order is restored.
+	int rest = fQueue.size() - 1;
+	for (int i = 0; i < rest; i++)
+	{
+		fQueue.enqueue(fQueue.dequeue());
+	}
+	return first;
 }
 
 std::string Battle::turnOrderText()
