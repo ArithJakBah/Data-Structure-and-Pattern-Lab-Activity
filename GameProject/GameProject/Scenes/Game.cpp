@@ -7,13 +7,11 @@
 
 namespace
 {
-	// The hero starts with three skills (later they come from scrolls found in rooms).
+	// The hero starts with one skill; the others are found as scrolls in the rooms.
 	Player* makeHero()
 	{
 		Player* hero = new Player("Hero", "The player", 30, 6, 2, 10);
 		hero->learnSkill(new Fireball());
-		hero->learnSkill(new Heal());
-		hero->learnSkill(new ShieldSpell());
 		return hero;
 	}
 }
@@ -116,6 +114,7 @@ void Game::applyRequest()
 
 	case Request::ShowVictory:
 		delete fEnd;
+		fEnd = nullptr;
 		fEnd = new EndScene(*this, true);
 		fCurrent = fEnd;
 		break;

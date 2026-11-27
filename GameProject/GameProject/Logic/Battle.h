@@ -8,11 +8,25 @@
 // What the player chose to do on their turn.
 struct PlayerAction
 {
-	enum class Kind { Attack, UseSkill };
+	enum class Kind { Attack, UseSkill, UseItem };
 
 	Kind     kind;
 	Skill*   skill;       // used when kind == UseSkill
-	Monster* target;      // chosen enemy (can be nullptr for skills that act on the caster)
+	Monster* target;      // chosen enemy (can be nullptr for things that act on the player)
+	Item*    item;        // used when kind == UseItem
+
+	static PlayerAction attack(Monster* aTarget)
+	{
+		return PlayerAction{ Kind::Attack, nullptr, aTarget, nullptr };
+	}
+	static PlayerAction useSkill(Skill* aSkill, Monster* aTarget)
+	{
+		return PlayerAction{ Kind::UseSkill, aSkill, aTarget, nullptr };
+	}
+	static PlayerAction useItem(Item* aItem)
+	{
+		return PlayerAction{ Kind::UseItem, nullptr, nullptr, aItem };
+	}
 };
 
 class Battle

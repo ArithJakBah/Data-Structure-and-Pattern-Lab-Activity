@@ -106,6 +106,11 @@ void Battle::performPlayerAction(const PlayerAction& aAction)
 		target = firstAliveMonster();
 	}
 
+	if (aAction.kind == PlayerAction::Kind::UseItem)
+	{
+		fPlayer->useItem(aAction.item);         // a used-up potion is deleted in here
+		return;
+	}
 	if (aAction.kind == PlayerAction::Kind::UseSkill && aAction.skill != nullptr)
 	{
 		aAction.skill->use(*fPlayer, target);   // skills that act on the caster ignore the target

@@ -8,11 +8,12 @@ namespace
 		"assets/wall.png",
 		"assets/exit.png",
 		"assets/hero.png",
-		"assets/skeleton.png"
+		"assets/skeleton.png",
+		"assets/items.png"
 	};
 
 	// Order matches Assets::Id. 0 = single picture, 64 = LPC sprite sheet.
-	const int kFrameSizes[] = { 0, 0, 0, 64, 64 };
+	const int kFrameSizes[] = { 0, 0, 0, 64, 64, 16 };
 }
 
 Assets::Assets()

@@ -21,6 +21,8 @@
   <ItemGroup>
     <ClCompile Include="Logic\Battle.cpp" />
     <ClCompile Include="Logic\Combatant.cpp" />
+    <ClCompile Include="Logic\Inventory.cpp" />
+    <ClCompile Include="Logic\Item.cpp" />
     <ClCompile Include="Logic\Monster.cpp" />
     <ClCompile Include="Logic\Player.cpp" />
     <ClCompile Include="Logic\ShieldStack.cpp" />
@@ -37,6 +39,7 @@
     <ClInclude Include="Logic\Combatant.h" />
     <ClInclude Include="Logic\Entity.h" />
     <ClInclude Include="Logic\Goblin.h" />
+    <ClInclude Include="Logic\Inventory.h" />
     <ClInclude Include="Logic\Item.h" />
     <ClInclude Include="Logic\Monster.h" />
     <ClInclude Include="Logic\Player.h" />
@@ -55,6 +58,7 @@
     <ClInclude Include="Structures\DoublyLinkedNodeIterator.h" />
     <ClInclude Include="Structures\List.h" />
     <ClInclude Include="Structures\Queue.h" />
+    <ClInclude Include="Structures\SinglyLinkedList.h" />
     <ClInclude Include="Structures\Stack.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

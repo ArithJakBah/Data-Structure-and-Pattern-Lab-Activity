@@ -7,7 +7,7 @@
 class Assets
 {
 public:
-	enum class Id { Floor, Wall, Exit, Hero, Skeleton, Count };
+	enum class Id { Floor, Wall, Exit, Hero, Skeleton, Items, Count };
 
 private:
 	static constexpr size_t COUNT = static_cast<size_t>(Id::Count);

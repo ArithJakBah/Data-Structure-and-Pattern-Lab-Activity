@@ -21,9 +21,13 @@ BattleScene::BattleScene(Game& aGame, Player& aPlayer, Monster* aMonsters[], siz
 	fSkillIndex(0),
 	fTargetIndex(0),
 	fPending(Pending::Attack),
+	fItemIndex(0),
+	fPotions{},
+	fPotionCount(0),
 	fShownPlayerHp(static_cast<float>(aPlayer.health())),
 	fShownMonsterHp{}
 {
+	fPlayer.beginBattle();          // an equipped Aegis puts up its shield layer
 	for (size_t i = 0; i < aCount && i < Battle::MAX_MONSTERS; i++)
 	{
 		fMonsters[fMonsterCount] = aMonsters[i];
@@ -98,6 +102,7 @@ void BattleScene::performTurn(const PlayerAction* aAction)
 {
 	int playerBefore = fPlayer.health();
 	int shieldBefore = fPlayer.shieldPoints();
+	int manaBefore = fPlayer.mana();
 	int monsterBefore[Battle::MAX_MONSTERS] = {};
 	for (size_t i = 0; i < fMonsterCount; i++)
 	{
@@ -129,10 +134,29 @@ void BattleScene::performTurn(const PlayerAction* aAction)
 			}
 		}
 		int healed = fPlayer.health() - playerBefore;
+		int manaGain = fPlayer.mana() - manaBefore;
 		int shieldGain = fPlayer.shieldPoints() - shieldBefore;
 
-		fCasting = aAction != nullptr && aAction->kind == PlayerAction::Kind::UseSkill && aAction->skill != nullptr;
-		if (fCasting)
+		bool usedItem = aAction != nullptr && aAction->kind == PlayerAction::Kind::UseItem;
+		bool usedSkill = aAction != nullptr && aAction->kind == PlayerAction::Kind::UseSkill && aAction->skill != nullptr;
+		fCasting = usedItem || usedSkill;
+
+		if (usedItem)
+		{
+			if (healed > 0)
+			{
+				fMessage = fPlayer.name() + " drinks " + fItemName + ": +" + std::to_string(healed) + " health";
+			}
+			else if (manaGain > 0)
+			{
+				fMessage = fPlayer.name() + " drinks " + fItemName + ": +" + std::to_string(manaGain) + " mana";
+			}
+			else
+			{
+				fMessage = fPlayer.name() + " uses " + fItemName;
+			}
+		}
+		else if (usedSkill)
 		{
 			const std::string& skillName = aAction->skill->name();
 			if (damage > 0)
@@ -189,13 +213,32 @@ void BattleScene::performTurn(const PlayerAction* aAction)
 
 void BattleScene::commit(Monster* aTarget)
 {
-	PlayerAction action{ PlayerAction::Kind::Attack, nullptr, aTarget };
+	PlayerAction action = PlayerAction::attack(aTarget);
 	if (fPending == Pending::Skill)
 	{
-		action.kind = PlayerAction::Kind::UseSkill;
-		action.skill = fPlayer.skill(static_cast<size_t>(fSkillIndex));
+		action = PlayerAction::useSkill(fPlayer.skill(static_cast<size_t>(fSkillIndex)), aTarget);
 	}
 	performTurn(&action);
+}
+
+void BattleScene::collectPotions()
+{
+	fPotionCount = 0;
+	for (ItemIterator it = fPlayer.inventory().begin(); it != fPlayer.inventory().end(); ++it)
+	{
+		if ((*it)->isPotion() && fPotionCount < Inventory::CAPACITY)
+		{
+			fPotions[fPotionCount++] = *it;
+		}
+	}
+}
+
+void BattleScene::commitItem(Item* aItem)
+{
+	fItemName = aItem->name();                  // remember it: a used-up potion is deleted
+	PlayerAction action = PlayerAction::useItem(aItem);
+	performTurn(&action);
+	fPotionCount = 0;                           // the list is out of date now
 }
 
 void BattleScene::beginAttack()
@@ -264,9 +307,13 @@ void BattleScene::handleInput(const sf::Event& aEvent)
 	switch (fPhase)
 	{
 	case Phase::ChoosingAction:
-		if (up || down)
+		if (up)
 		{
-			fMenuIndex = 1 - fMenuIndex;
+			fMenuIndex = (fMenuIndex + 2) % 3;
+		}
+		else if (down)
+		{
+			fMenuIndex = (fMenuIndex + 1) % 3;
 		}
 		else if (confirm)
 		{
@@ -274,15 +321,32 @@ void BattleScene::handleInput(const sf::Event& aEvent)
 			{
 				beginAttack();
 			}
-			else if (fPlayer.skillCount() == 0)
+			else if (fMenuIndex == 1)
 			{
-				fMessage = "You don't know any skills yet";
+				if (fPlayer.skillCount() == 0)
+				{
+					fMessage = "You don't know any skills yet";
+				}
+				else
+				{
+					fPhase = Phase::ChoosingSkill;
+					fSkillIndex = 0;
+					fMessage = "Pick a skill (W/S, Enter).  Esc: back";
+				}
 			}
 			else
 			{
-				fPhase = Phase::ChoosingSkill;
-				fSkillIndex = 0;
-				fMessage = "Pick a skill (W/S, Enter).  Esc: back";
+				collectPotions();
+				if (fPotionCount == 0)
+				{
+					fMessage = "You have no potions";
+				}
+				else
+				{
+					fPhase = Phase::ChoosingItem;
+					fItemIndex = 0;
+					fMessage = "Pick a potion (W/S, Enter).  Esc: back";
+				}
 			}
 		}
 		break;
@@ -306,6 +370,37 @@ void BattleScene::handleInput(const sf::Event& aEvent)
 		else if (confirm)
 		{
 			chooseSkill();
+		}
+		break;
+	}
+
+	case Phase::ChoosingItem:
+	{
+		int n = static_cast<int>(fPotionCount);
+		if (up && n > 0)
+		{
+			fItemIndex = (fItemIndex + n - 1) % n;
+		}
+		else if (down && n > 0)
+		{
+			fItemIndex = (fItemIndex + 1) % n;
+		}
+		else if (back)
+		{
+			fPhase = Phase::ChoosingAction;
+			fMessage = "Your turn";
+		}
+		else if (confirm && n > 0)
+		{
+			Item* potion = fPotions[fItemIndex];
+			if (!potion->canUse(fPlayer))
+			{
+				fMessage = potion->name() + " isn't needed right now";
+			}
+			else
+			{
+				commitItem(potion);
+			}
 		}
 		break;
 	}
@@ -416,6 +511,7 @@ void BattleScene::update(float aDt)
 
 	case Phase::ChoosingAction:
 	case Phase::ChoosingSkill:
+	case Phase::ChoosingItem:
 	case Phase::ChoosingTarget:
 		break;      // handleInput() drives these
 
@@ -485,7 +581,8 @@ void BattleScene::drawShield(sf::RenderWindow& aWindow, float aX, float aY, floa
 
 void BattleScene::drawMenu(sf::RenderWindow& aWindow) const
 {
-	if (fPhase != Phase::ChoosingAction && fPhase != Phase::ChoosingSkill && fPhase != Phase::ChoosingTarget)
+	if (fPhase != Phase::ChoosingAction && fPhase != Phase::ChoosingSkill &&
+		fPhase != Phase::ChoosingItem && fPhase != Phase::ChoosingTarget)
 	{
 		return;
 	}
@@ -505,11 +602,14 @@ void BattleScene::drawMenu(sf::RenderWindow& aWindow) const
 
 	if (fPhase == Phase::ChoosingAction)
 	{
-		fGame.drawText(aWindow, std::string(fMenuIndex == 0 ? "> " : "   ") + "Attack",
-			x + 14.f, y + 10.f, 22, fMenuIndex == 0 ? picked : normal);
-		fGame.drawText(aWindow, std::string(fMenuIndex == 1 ? "> " : "   ") + "Skill",
-			x + 14.f, y + 42.f, 22, fMenuIndex == 1 ? picked : normal);
-		fGame.drawText(aWindow, "W/S: choose    Enter: confirm", x + 14.f, y + 100.f, 14, disabled);
+		const char* names[] = { "Attack", "Skill", "Item" };
+		for (int i = 0; i < 3; i++)
+		{
+			bool isPicked = i == fMenuIndex;
+			fGame.drawText(aWindow, std::string(isPicked ? "> " : "   ") + names[i],
+				x + 14.f, y + 6.f + static_cast<float>(i) * 30.f, 22, isPicked ? picked : normal);
+		}
+		fGame.drawText(aWindow, "W/S: choose    Enter: confirm", x + 14.f, y + 102.f, 14, disabled);
 	}
 	else if (fPhase == Phase::ChoosingSkill)
 	{
@@ -527,6 +627,22 @@ void BattleScene::drawMenu(sf::RenderWindow& aWindow) const
 		if (shown != nullptr)
 		{
 			fGame.drawText(aWindow, shown->description(), x + 14.f, y + 100.f, 14, sf::Color(180, 200, 230));
+		}
+	}
+	else if (fPhase == Phase::ChoosingItem)
+	{
+		for (size_t i = 0; i < fPotionCount; i++)
+		{
+			Item* potion = fPotions[i];
+			bool usable = potion->canUse(fPlayer);
+			bool isPicked = static_cast<int>(i) == fItemIndex;
+			sf::Color color = !usable ? disabled : (isPicked ? picked : normal);
+			fGame.drawText(aWindow, std::string(isPicked ? "> " : "   ") + potion->name(),
+				x + 14.f, y + 6.f + static_cast<float>(i) * 26.f, 20, color);
+		}
+		if (fItemIndex < static_cast<int>(fPotionCount))
+		{
+			fGame.drawText(aWindow, fPotions[fItemIndex]->description(), x + 14.f, y + 100.f, 14, sf::Color(180, 200, 230));
 		}
 	}
 	else

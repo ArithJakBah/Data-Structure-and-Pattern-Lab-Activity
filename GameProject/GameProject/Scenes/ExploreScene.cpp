@@ -3,6 +3,8 @@
 #include "Game.h"
 #include "Skeleton.h"
 #include "LpcSheet.h"
+#include "Inventory.h"
+#include "Skill.h"
 
 namespace
 {
@@ -46,11 +48,24 @@ ExploreScene::ExploreScene(Game& aGame)
 	fMoveTimer(0.f),
 	fHeld(Direction::Right),
 	fHolding(false),
-	fGuardCount(0)
+	fGuardCount(0),
+	fFloorCount(0),
+	fShowInventory(false),
+	fInvIndex(0),
+	fToastTimer(0.f)
 {
 	// Two guards. The top row and the right-hand column are a safe way to the exit.
 	addGuard(new Skeleton(), 2, 6, Direction::Down, 3);
 	addGuard(new Skeleton(), 6, 8, Direction::Up, 3);
+
+	// Items on the floor. The ones inside a guard's red sight line cost you a fight.
+	addFloorItem(new Potion(Potion::Kind::Health, 15), 1, 3);
+	addFloorItem(new Weapon("Iron Sword", 3), 6, 1);
+	addFloorItem(new Potion(Potion::Kind::Mana, 8), 7, 3);
+	addFloorItem(new SkillScroll("Shield"), 1, 10);
+	addFloorItem(new KeyFragment(), 3, 10);
+	addFloorItem(new SkillScroll("Heal"), 5, 6);               // in the sight line of the first guard
+	addFloorItem(new Armor("Chain Mail", 10, 1), 4, 8);        // in the sight line of the second guard
 }
 
 ExploreScene::~ExploreScene()
@@ -58,6 +73,10 @@ ExploreScene::~ExploreScene()
 	for (size_t i = 0; i < fGuardCount; i++)
 	{
 		delete fGuards[i].monster;
+	}
+	for (size_t i = 0; i < fFloorCount; i++)
+	{
+		delete fFloor[i].item;
 	}
 }
 
@@ -172,6 +191,47 @@ void ExploreScene::addGuard(Monster* aMonster, int aRow, int aCol, Direction aFa
 	fGuardCount++;
 }
 
+void ExploreScene::addFloorItem(Item* aItem, int aRow, int aCol)
+{
+	if (fFloorCount >= MAX_FLOOR_ITEMS)
+	{
+		delete aItem;
+		return;
+	}
+	fFloor[fFloorCount].item = aItem;
+	fFloor[fFloorCount].row = aRow;
+	fFloor[fFloorCount].col = aCol;
+	fFloorCount++;
+}
+
+void ExploreScene::showToast(const std::string& aText)
+{
+	fToast = aText;
+	fToastTimer = 2.5f;
+}
+
+void ExploreScene::pickUpHere()
+{
+	for (size_t i = 0; i < fFloorCount; i++)
+	{
+		if (fFloor[i].row != fPlayerRow || fFloor[i].col != fPlayerCol)
+		{
+			continue;
+		}
+
+		Item* item = fFloor[i].item;
+		if (!fGame.player().pickUp(item))
+		{
+			showToast("Bag full: can't take " + item->name());
+			return;
+		}
+		showToast("Picked up " + item->name());
+		fFloor[i] = fFloor[fFloorCount - 1];        // the bag owns it now; close the gap
+		fFloorCount--;
+		return;
+	}
+}
+
 void ExploreScene::tryMove(Direction aDirection)
 {
 	fFacing = aDirection;           // turn even if the way is blocked
@@ -201,6 +261,8 @@ void ExploreScene::checkTile()
 		fGame.requestVictory();
 		return;
 	}
+
+	pickUpHere();
 
 	bool spotted = false;
 	for (size_t i = 0; i < fGuardCount; i++)
@@ -247,6 +309,7 @@ void ExploreScene::removeDefeated()
 	// Key-release events went to the battle screen, so forget any held key.
 	fHolding = false;
 	fMoving = false;
+	fShowInventory = false;
 }
 
 void ExploreScene::handleInput(const sf::Event& aEvent)
@@ -277,6 +340,23 @@ void ExploreScene::handleInput(const sf::Event& aEvent)
 	{
 		return;
 	}
+
+	if (fShowInventory)
+	{
+		handleInventoryKey(key->code);
+		return;
+	}
+	if (key->code == sf::Keyboard::Key::I)
+	{
+		if (!fMoving)
+		{
+			fShowInventory = true;
+			fHolding = false;
+			fInvIndex = 0;
+			fInvMessage.clear();
+		}
+		return;
+	}
 	if (key->code == sf::Keyboard::Key::Escape)
 	{
 		fGame.quit();
@@ -300,6 +380,14 @@ void ExploreScene::update(float aDt)
 	if (fGame.hasPendingRequest())
 	{
 		return;
+	}
+	if (fToastTimer > 0.f)
+	{
+		fToastTimer -= aDt;
+	}
+	if (fShowInventory)
+	{
+		return;         // the game is paused while you look in your bag
 	}
 
 	if (fMoving)
@@ -365,6 +453,13 @@ void ExploreScene::draw(sf::RenderWindow& aWindow)
 				aWindow.draw(rect);
 			}
 		}
+	}
+
+	// Items lying on the floor
+	for (size_t i = 0; i < fFloorCount; i++)
+	{
+		fGame.drawFrame(aWindow, Assets::Id::Items, fFloor[i].item->iconIndex(), 0,
+			fFloor[i].col * tile + 14.f, fFloor[i].row * tile + 14.f, 36.f);
 	}
 
 	// What each living guard can see (red tiles)
@@ -450,9 +545,207 @@ void ExploreScene::draw(sf::RenderWindow& aWindow)
 	float hudY = ROWS * tile + 8.f;
 	fGame.drawText(aWindow,
 		"HP " + std::to_string(p.health()) + "/" + std::to_string(p.maxHealth()) +
-		"    MP " + std::to_string(p.mana()) + "/" + std::to_string(p.maxMana()),
+		"   MP " + std::to_string(p.mana()) + "/" + std::to_string(p.maxMana()) +
+		"   ATK " + std::to_string(p.attack()) + "   DEF " + std::to_string(p.defence()) +
+		"   Key fragments " + std::to_string(p.keyFragments()) + "/" + std::to_string(Player::FRAGMENTS_NEEDED),
 		10.f, hudY, 20, sf::Color::White);
 	fGame.drawText(aWindow,
-		"WASD / arrows: move (hold to walk)    Red tiles = guard sight    Green door = exit    Esc: quit",
+		"WASD / arrows: move (hold to walk)   I: inventory   Red tiles = guard sight   Esc: quit",
 		10.f, hudY + 28.f, 15, sf::Color(180, 180, 190));
+
+	// Short message ("Picked up ...")
+	if (fToastTimer > 0.f)
+	{
+		sf::RectangleShape box({ 460.f, 34.f });
+		box.setPosition({ 10.f, 10.f });
+		box.setFillColor(sf::Color(20, 20, 32, 220));
+		aWindow.draw(box);
+		fGame.drawText(aWindow, fToast, 20.f, 14.f, 20, sf::Color(255, 230, 120));
+	}
+
+	if (fShowInventory)
+	{
+		drawInventory(aWindow);
+	}
+}
+
+// ---------------------------------------------------------------- inventory screen
+void ExploreScene::handleInventoryKey(sf::Keyboard::Key aKey)
+{
+	Player& p = fGame.player();
+	int count = static_cast<int>(p.inventory().count());
+
+	switch (aKey)
+	{
+	case sf::Keyboard::Key::I:
+	case sf::Keyboard::Key::Escape:
+		fShowInventory = false;
+		break;
+	case sf::Keyboard::Key::W:
+	case sf::Keyboard::Key::Up:
+		if (count > 0)
+		{
+			fInvIndex = (fInvIndex + count - 1) % count;
+		}
+		break;
+	case sf::Keyboard::Key::S:
+	case sf::Keyboard::Key::Down:
+		if (count > 0)
+		{
+			fInvIndex = (fInvIndex + 1) % count;
+		}
+		break;
+	case sf::Keyboard::Key::Enter:
+	case sf::Keyboard::Key::Space:
+		useSelected();
+		break;
+	case sf::Keyboard::Key::Num1:
+		unequipSlot(Equipment::Slot::Weapon);
+		break;
+	case sf::Keyboard::Key::Num2:
+		unequipSlot(Equipment::Slot::Body);
+		break;
+	case sf::Keyboard::Key::Num3:
+		unequipSlot(Equipment::Slot::Accessory);
+		break;
+	default:
+		break;
+	}
+}
+
+void ExploreScene::useSelected()
+{
+	Player& p = fGame.player();
+	Item* item = p.inventory().at(static_cast<size_t>(fInvIndex));
+	if (item == nullptr)
+	{
+		return;
+	}
+
+	std::string name = item->name();                  // the item may be used up (deleted) below
+	bool consumable = item->isConsumable();
+	if (!item->canUse(p))
+	{
+		fInvMessage = "You can't use " + name + " right now";
+		return;
+	}
+	if (p.useItem(item))
+	{
+		fInvMessage = (consumable ? "Used " : "Equipped ") + name;
+	}
+	else
+	{
+		fInvMessage = "Nothing happened";
+	}
+
+	int count = static_cast<int>(p.inventory().count());
+	if (fInvIndex >= count)
+	{
+		fInvIndex = count > 0 ? count - 1 : 0;
+	}
+}
+
+void ExploreScene::unequipSlot(Equipment::Slot aSlot)
+{
+	Player& p = fGame.player();
+	const Equipment* worn = p.equipped(aSlot);
+	if (worn == nullptr)
+	{
+		fInvMessage = "Nothing is worn there";
+		return;
+	}
+	std::string name = worn->name();
+	if (p.unequip(aSlot))
+	{
+		fInvMessage = "Took off " + name;
+	}
+	else
+	{
+		fInvMessage = "Your bag is full";
+	}
+}
+
+void ExploreScene::drawInventory(sf::RenderWindow& aWindow) const
+{
+	Player& p = fGame.player();
+	const sf::Color normal(230, 230, 240);
+	const sf::Color picked(255, 220, 90);
+	const sf::Color faded(130, 130, 150);
+
+	sf::RectangleShape shade({ static_cast<float>(Game::WINDOW_WIDTH), static_cast<float>(Game::WINDOW_HEIGHT) });
+	shade.setFillColor(sf::Color(0, 0, 0, 170));
+	aWindow.draw(shade);
+
+	sf::RectangleShape panel({ 708.f, 560.f });
+	panel.setPosition({ 30.f, 30.f });
+	panel.setFillColor(sf::Color(28, 28, 44, 250));
+	panel.setOutlineColor(sf::Color(100, 100, 150));
+	panel.setOutlineThickness(2.f);
+	aWindow.draw(panel);
+
+	// ---- left: the bag (walked with the iterator) ----
+	fGame.drawText(aWindow,
+		"Bag  (" + std::to_string(p.inventory().count()) + "/" + std::to_string(Inventory::CAPACITY) + ")",
+		52.f, 44.f, 24, normal);
+
+	int row = 0;
+	for (ItemIterator it = p.inventory().begin(); it != p.inventory().end(); ++it)
+	{
+		Item* item = *it;
+		float y = 88.f + static_cast<float>(row) * 40.f;
+		bool isPicked = row == fInvIndex;
+		if (isPicked)
+		{
+			sf::RectangleShape bar({ 350.f, 38.f });
+			bar.setPosition({ 46.f, y - 4.f });
+			bar.setFillColor(sf::Color(60, 60, 100));
+			aWindow.draw(bar);
+		}
+		fGame.drawFrame(aWindow, Assets::Id::Items, item->iconIndex(), 0, 54.f, y, 30.f);
+		fGame.drawText(aWindow, item->name(), 96.f, y + 3.f, 20,
+			isPicked ? picked : (item->canUse(p) ? normal : faded));
+		row++;
+	}
+	if (row == 0)
+	{
+		fGame.drawText(aWindow, "(empty)", 96.f, 91.f, 20, faded);
+	}
+
+	// ---- right: equipment, stats, skills ----
+	fGame.drawText(aWindow, "Equipped", 430.f, 44.f, 24, normal);
+	const char* slotNames[] = { "[1] Weapon", "[2] Body", "[3] Accessory" };
+	for (size_t i = 0; i < Equipment::SLOT_COUNT; i++)
+	{
+		const Equipment* worn = p.equipped(static_cast<Equipment::Slot>(i));
+		fGame.drawText(aWindow,
+			std::string(slotNames[i]) + ":  " + (worn != nullptr ? worn->name() : std::string("-")),
+			430.f, 86.f + static_cast<float>(i) * 28.f, 17, worn != nullptr ? normal : faded);
+	}
+
+	fGame.drawText(aWindow, "Stats", 430.f, 190.f, 22, normal);
+	fGame.drawText(aWindow, "Attack  " + std::to_string(p.attack()) + "    Defence  " + std::to_string(p.defence()),
+		430.f, 222.f, 17, normal);
+	fGame.drawText(aWindow, "Health  " + std::to_string(p.health()) + "/" + std::to_string(p.maxHealth()) +
+		"    Mana  " + std::to_string(p.mana()) + "/" + std::to_string(p.maxMana()),
+		430.f, 248.f, 17, normal);
+	fGame.drawText(aWindow, "Key fragments  " + std::to_string(p.keyFragments()) + "/" + std::to_string(Player::FRAGMENTS_NEEDED),
+		430.f, 274.f, 17, sf::Color(240, 200, 70));
+
+	fGame.drawText(aWindow, "Skills", 430.f, 320.f, 22, normal);
+	for (size_t i = 0; i < p.skillCount(); i++)
+	{
+		Skill* skill = p.skill(i);
+		fGame.drawText(aWindow, skill->name() + "   " + std::to_string(skill->manaCost()) + " MP",
+			430.f, 352.f + static_cast<float>(i) * 26.f, 17, normal);
+	}
+
+	// ---- bottom: description, last message, help ----
+	Item* selected = p.inventory().at(static_cast<size_t>(fInvIndex));
+	if (selected != nullptr)
+	{
+		fGame.drawText(aWindow, selected->description(), 52.f, 480.f, 17, sf::Color(180, 200, 230));
+	}
+	fGame.drawText(aWindow, fInvMessage, 52.f, 510.f, 19, sf::Color(255, 230, 120));
+	fGame.drawText(aWindow, "W/S: select    Enter: use or equip    1/2/3: take off    I or Esc: close",
+		52.f, 556.f, 14, faded);
 }

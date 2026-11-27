@@ -10,7 +10,7 @@ class Game;
 class BattleScene : public Scene
 {
 private:
-	enum class Phase { Deciding, ChoosingAction, ChoosingSkill, ChoosingTarget, MonsterPause, Acting, Finished };
+	enum class Phase { Deciding, ChoosingAction, ChoosingSkill, ChoosingItem, ChoosingTarget, MonsterPause, Acting, Finished };
 	enum class Pending { Attack, Skill };       // what the target picker is choosing a target for
 
 	static constexpr float ACT_TIME = 0.5f;       // length of an attack animation
@@ -31,10 +31,14 @@ private:
 	std::string fMessage;
 	std::string fOrderText;
 
-	int     fMenuIndex;           // 0 = Attack, 1 = Skill
+	int     fMenuIndex;           // 0 = Attack, 1 = Skill, 2 = Item
 	int     fSkillIndex;
 	int     fTargetIndex;
 	Pending fPending;
+	int         fItemIndex;                          // which potion is highlighted
+	Item*       fPotions[Inventory::CAPACITY];       // the potions in the bag (collected when the item menu opens)
+	size_t      fPotionCount;
+	std::string fItemName;                           // name of the item just used (it may be deleted by then)
 
 	float fShownPlayerHp;                         // HP bars ease toward the real HP
 	float fShownMonsterHp[Battle::MAX_MONSTERS];
@@ -43,6 +47,8 @@ private:
 	void  commit(Monster* aTarget);
 	void  beginAttack();
 	void  chooseSkill();
+	void  collectPotions();
+	void  commitItem(Item* aItem);
 	int   aliveMonsterCount() const;
 	int   firstAliveIndex() const;
 	int   nextAliveIndex(int aFrom, int aStep) const;

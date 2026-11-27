@@ -87,3 +87,21 @@ void ShieldSpell::apply(Combatant& aUser, Combatant* /*aTarget*/)
 {
 	aUser.addShield(DURABILITY);
 }
+
+// ---------------- createSkill ----------------
+Skill* createSkill(const std::string& aName)
+{
+	if (aName == "Fireball")
+	{
+		return new Fireball();
+	}
+	if (aName == "Heal")
+	{
+		return new Heal();
+	}
+	if (aName == "Shield")
+	{
+		return new ShieldSpell();
+	}
+	return nullptr;
+}

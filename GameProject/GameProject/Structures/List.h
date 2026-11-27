@@ -1,5 +1,4 @@
 #pragma once
-
 #include "DoublyLinkedNode.h"
 #include "DoublyLinkedNodeIterator.h"
 

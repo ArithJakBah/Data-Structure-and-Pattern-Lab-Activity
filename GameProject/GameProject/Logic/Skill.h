@@ -67,3 +67,7 @@ public:
 protected:
 	void apply(Combatant& aUser, Combatant* aTarget) override;
 };
+
+// Builds a new skill from its name (used by skill scrolls). Returns nullptr for an unknown name.
+// The caller owns the returned skill.
+Skill* createSkill(const std::string& aName);
